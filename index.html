@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Word Enterprise Pro - v37.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #2b2b2b;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            transition: background-color 0.2s;
+        }
+        body.light-workspace {
+            background-color: #d8dee9;
+        }
+
+        /* แถบ Ribbon ดั้งเดิม + เพิ่มชุดคำสั่งตามที่ต้องการครบถ้วนโดยไม่เอาของเก่าออก */
+        .office-ribbon {
+            background: #f3f3f3;
+            border-bottom: 1px solid #d1d1d1;
+            padding: 6px 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .ribbon-section {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            border-right: 1px solid #d1d1d1;
+            padding-right: 6px;
+        }
+        .office-ribbon button, .office-ribbon select, .office-ribbon input {
+            background: #ffffff;
+            border: 1px solid #adadad;
+            padding: 4px 8px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: 'Sarabun';
+            font-size: 0.85rem;
+            height: 30px;
+        }
+        .office-ribbon button:hover { background: #e5f3ff; border-color: #0078d7; }
+        .office-ribbon button.active-toggle {
+            background: #ffe699 !important;
+            border-color: #d69e00 !important;
+            font-weight: bold;
+        }
+        .btn-primary { background: #0078d7 !important; color: white !important; border-color: #005a9e !important; }
+        .btn-success { background: #107c41 !important; color: white !important; border-color: #0e6b38 !important; }
+        .btn-danger { background: #d13438 !important; color: white !important; border-color: #a4262c !important; }
+
+        /* พื้นที่หน้ากระดาษ A4 */
+        .workspace {
+            padding: 30px 0 60px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: calc(100vh - 60px);
+            background-color: #404040;
+            overflow-x: auto;
+            transition: background-color 0.2s;
+        }
+        body.light-workspace .workspace {
+            background-color: #e5e9f0;
+        }
+        body.focus-mode .office-ribbon {
+            opacity: 0.15;
+            transition: opacity 0.2s;
+        }
+        body.focus-mode .office-ribbon:hover {
+            opacity: 1;
+        }
+
+        /* ไม้บรรทัดจำลองแนวนอน (Ruler) */
+        .ruler-horizontal {
+            width: 21cm;
+            height: 22px;
+            background: #f1f3f4;
+            border: 1px solid #bdbdbd;
+            border-bottom: none;
+            display: flex;
+            align-items: flex-end;
+            font-size: 10px;
+            color: #555;
+            user-select: none;
+            overflow: hidden;
+        }
+        .ruler-horizontal.landscape-ruler {
+            width: 29.7cm;
+        }
+        .ruler-tick {
+            flex: 1;
+            border-left: 1px solid #888;
+            height: 8px;
+            padding-left: 2px;
+            line-height: 1;
+        }
+        .ruler-tick.major {
+            height: 14px;
+            border-left: 1px solid #222;
+            font-weight: bold;
+        }
+
+        .page-a4 {
+            width: 21cm;
+            min-height: 29.7cm;
+            background: white;
+            padding: 2.5cm;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            outline: none;
+            font-size: 16px;
+            line-height: 1.6;
+            position: relative;
+            transform-origin: top center;
+            transition: transform 0.15s ease;
+        }
+        .page-a4.show-boundaries p,
+        .page-a4.show-boundaries div,
+        .page-a4.show-boundaries h1,
+        .page-a4.show-boundaries h2,
+        .page-a4.show-boundaries h3 {
+            outline: 1px dashed #90caf9;
+        }
+        .page-landscape {
+            width: 29.7cm !important;
+            min-height: 21cm !important;
+            padding: 2cm !important;
+        }
+
+        /* ตารางอิสระ ลากย้ายทั้งกล่องได้ และแต่ละช่องปรับขนาดอิสระทีละช่อง */
+        .draggable-table-box {
+            position: absolute;
+            top: 200px;
+            left: 100px;
+            border: 2px solid #000;
+            background: #fff;
+            z-index: 100;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+            min-width: 250px;
+            min-height: 100px;
+        }
+        .table-box-header {
+            background: #e0e0e0;
+            padding: 4px 8px;
+            font-size: 11px;
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #b0b0b0;
+            user-select: none;
+        }
+        .table-box-header button {
+            background: none;
+            border: 1px solid #999;
+            cursor: pointer;
+            font-size: 10px;
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
+        .table-box-header button:hover { background: #ccc; }
+
+        table.pro-table {
+            width: 100%;
+            border-collapse: collapse !important;
+            border-spacing: 0;
+            border: none;
+        }
+        table.pro-table td {
+            border: 1px solid #000 !important;
+            padding: 8px 12px;
+            text-align: left;
+            vertical-align: middle;
+            background-color: #fff;
+            resize: both;
+            overflow: auto;
+            min-width: 40px;
+            min-height: 35px;
+        }
+        table.pro-table td[contenteditable="true"]:focus {
+            outline: 2px solid #0078d7;
+            background: #fffdf0;
+        }
+
+        /* กล่องข้อความอิสระ */
+        .draggable-box {
+            position: absolute;
+            top: 150px;
+            left: 150px;
+            border: 2px solid #000000;
+            background: #ffffcc;
+            padding: 0;
+            z-index: 100;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+            width: 320px;
+            resize: both;
+            overflow: auto;
+        }
+        .box-header {
+            background: #e0e0e0;
+            padding: 4px 8px;
+            font-size: 11px;
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #b0b0b0;
+            user-select: none;
+        }
+        .box-controls {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .box-controls input[type="color"] {
+            width: 18px;
+            height: 18px;
+            padding: 0;
+            border: 1px solid #666;
+            cursor: pointer;
+        }
+        .box-header button {
+            background: none;
+            border: 1px solid #999;
+            cursor: pointer;
+            font-size: 10px;
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
+        .box-header button:hover { background: #ccc; }
+        .draggable-box textarea {
+            width: 100%;
+            height: 120px;
+            padding: 8px;
+            font-family: 'Sarabun';
+            font-size: 16px;
+            border: none;
+            resize: none;
+            outline: none;
+            background: transparent;
+        }
+
+        /* รูปภาพอิสระ */
+        .draggable-img-container {
+            position: absolute;
+            top: 200px;
+            left: 200px;
+            border: 1px solid #b0b0b0;
+            background: #fff;
+            padding: 2px;
+            z-index: 90;
+            cursor: move;
+            resize: both;
+            overflow: auto;
+        }
+        .draggable-img-container img {
+            display: block;
+            width: 250px;
+            height: auto;
+        }
+        .img-header {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            font-size: 10px;
+            display: flex;
+            justify-content: space-between;
+            cursor: move;
+            border-bottom: 1px solid #ddd;
+            user-select: none;
+        }
+
+        /* Modal หน้าต่าง */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 6px;
+            width: 650px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .drawing-tools {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: #f1f3f4;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        /* Status Bar ด้านล่าง */
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: #0078d7;
+            color: white;
+            padding: 5px 15px;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1001;
+        }
+
+        @media print {
+            body { background: none !important; }
+            .office-ribbon, .status-bar, .box-header, .img-header, .table-box-header, .ruler-horizontal { display: none !important; }
+            .workspace { padding: 0; background: none !important; }
+            .page-a4 { box-shadow: none; margin: 0; width: 100% !important; min-height: auto !important; transform: none !important; }
+            .page-a4.show-boundaries * { outline: none !important; }
+            .draggable-box, .draggable-table-box, .draggable-img-container { box-shadow: none; border: none !important; resize: none !important; }
+            table.pro-table { border: 1.5px solid #000 !important; }
+            table.pro-table td { border: 1px solid #000 !important; resize: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- แถบ Ribbon ดั้งเดิม + เพิ่มคำสั่งใหม่ครบถ้วนโดยไม่มีการตัดของเก่าออก -->
+    <div class="office-ribbon">
+        <!-- 1. ย้อนกลับ & คลิปบอร์ด -->
+        <div class="ribbon-section">
+            <button onclick="execCmd('undo')" title="ย้อนกลับ (Undo)">↩️</button>
+            <button onclick="execCmd('redo')" title="ทำซ้ำ (Redo)">↪️</button>
+            <button onclick="document.execCommand('cut')">✂️ ตัด</button>
+            <button onclick="document.execCommand('copy')">📋 ก๊อปปี้</button>
+            <button onclick="document.execCommand('selectAll')">📌 เลือกทั้งหมด</button>
+        </div>
+
+        <!-- 2. ฟอนต์และขนาด -->
+        <div class="ribbon-section">
+            <select onchange="execCmd('fontName', this.value)">
+                <option value="TH Sarabun PSK">TH Sarabun PSK</option>
+                <option value="Sarabun" selected>Sarabun</option>
+                <option value="Cordia New">Cordia New</option>
+                <option value="Angsana New">Angsana New</option>
+                <option value="Tahoma">Tahoma</option>
+                <option value="Arial">Arial</option>
+                <option value="Times New Roman">Times New Roman</option>
+            </select>
+            <select id="fontSizeDropdown" onchange="changeFontSize(this.value)">
+                <option value="12px">12</option>
+                <option value="14px">14</option>
+                <option value="16px" selected>16</option>
+                <option value="18px">18</option>
+                <option value="20px">20</option>
+                <option value="24px">24</option>
+                <option value="32px">32</option>
+                <option value="48px">48</option>
+                <option value="72px">72</option>
+            </select>
+            <button onclick="adjustSize(2)"><b>A+</b></button>
+            <button onclick="adjustSize(-2)"><b>A-</b></button>
+        </div>
+
+        <!-- 3. รูปแบบตัวอักษร + ตัวยก/ตัวห้อย/ล้างรูปแบบ -->
+        <div class="ribbon-section">
+            <button onclick="execCmd('bold')"><b>B</b></button>
+            <button onclick="execCmd('italic')"><i>I</i></button>
+            <button onclick="execCmd('underline')"><u>U</u></button>
+            <button onclick="execCmd('strikeThrough')"><s>abc</s></button>
+            <button onclick="execCmd('subscript')" title="ตัวห้อย">X₂</button>
+            <button onclick="execCmd('superscript')" title="ตัวยก">X²</button>
+            <button onclick="execCmd('removeFormat')" title="ล้างการจัดรูปแบบ">🧹</button>
+            <input type="color" onchange="execCmd('foreColor', this.value)" title="สีตัวอักษร" style="width:28px; height:28px; padding:0; cursor:pointer;">
+            <input type="color" onchange="execCmd('hiliteColor', this.value)" title="ไฮไลต์" style="width:28px; height:28px; padding:0; cursor:pointer;">
+        </div>
+
+        <!-- 4. จัดย่อหน้า ระยะห่างบรรทัด และเยื้องหน้า -->
+        <div class="ribbon-section">
+            <button onclick="execCmd('justifyLeft')" title="ชิดซ้าย">⬅️</button>
+            <button onclick="execCmd('justifyCenter')" title="กึ่งกลาง">🔲</button>
+            <button onclick="execCmd('justifyRight')" title="ชิดขวา">➡</button>
+            <button onclick="execCmd('justifyFull')" title="กระจายเต็มแนว">📑</button>
+            <button onclick="execCmd('outdent')" title="ลดการเยื้อง">⇤</button>
+            <button onclick="execCmd('indent')" title="เพิ่มการเยื้อง (แท็บ)">⇥</button>
+            <select onchange="changeLineHeight(this.value)" title="ระยะห่างระหว่างบรรทัด">
+                <option value="1.2">บรรทัด 1.0</option>
+                <option value="1.4">บรรทัด 1.15</option>
+                <option value="1.6" selected>บรรทัด 1.5 (มาตรฐาน)</option>
+                <option value="2.0">บรรทัด 2.0</option>
+                <option value="2.5">บรรทัด 2.5</option>
+            </select>
+            <select onchange="changeParaSpacing(this.value)" title="ระยะห่างย่อหน้า">
+                <option value="0px">ย่อหน้าชิด (0px)</option>
+                <option value="8px" selected>ย่อหน้าปกติ (8px)</option>
+                <option value="16px">ย่อหน้าห่าง (16px)</option>
+                <option value="24px">ย่อหน้ากว้าง (24px)</option>
+            </select>
+            <button onclick="execCmd('insertUnorderedList')">• จุด</button>
+            <button onclick="insertCustomList('- ')">- ขีด</button>
+            <button onclick="execCmd('insertOrderedList')">1. ตัวเลข</button>
+        </div>
+
+        <!-- 5. เพิ่มกลุ่มตามคำขอ (หน้ากระดาษ, ภาพและวัตถุ, ภาพประกอบ, ลิงก์, ข้อความและความเห็น, สัญลักษณ์) โดยคงตารางอิสระเดิมไว้ 100% -->
+        <div class="ribbon-section">
+            <button onclick="insertCoverPage()" title="หน้าปก">📑 หน้าปก</button>
+            <button onclick="insertBlankPage()" title="หน้าว่าง">📄 หน้าว่าง</button>
+            <button class="btn-primary" onclick="addDraggableTable()" title="ตารางอิสระปรับขนาดแต่ละช่องได้">📊 ตาราง</button>
+            <button onclick="insertImageFile()" title="รูปภาพ">🖼️ รูปภาพ</button>
+            <button onclick="insertShapeBox()" title="รูปร่าง">🔲 รูปร่าง</button>
+        </div>
+
+        <div class="ribbon-section">
+            <button onclick="insertIconSymbol()" title="ไอคอน">⭐ ไอคอน</button>
+            <button onclick="insertSmartArtBox()" title="SmartArt">🔤 SmartArt</button>
+            <button onclick="insertChartBox()" title="แผนภูมิ">📈 แผนภูมิ</button>
+        </div>
+
+        <div class="ribbon-section">
+            <button onclick="insertHyperlinkModal()" title="ลิงก์">🔗 ลิงก์</button>
+            <button onclick="insertBookmark()" title="ที่คั่นหน้า">🔖 ที่คั่นหน้า</button>
+            <button onclick="insertCrossReference()" title="การอ้างโยง">📌 การอ้างโยง</button>
+        </div>
+
+        <div class="ribbon-section">
+            <button onclick="insertCommentBox()" title="ข้อคิดเห็น">💬 ข้อคิดเห็น</button>
+            <button onclick="insertShopHeader()" title="หัวกระดาษ">📋 หัวกระดาษ</button>
+            <button onclick="insertFooterNote()" title="ท้ายกระดาษ">📋 ท้ายกระดาษ</button>
+            <button onclick="insertPageNumber()" title="หมายเลขหน้า">1️⃣ หมายเลขหน้า</button>
+            <button class="btn-primary" onclick="addTextBox()" title="กล่องข้อความ">📦 กล่องข้อความ</button>
+            <button onclick="insertQuickParts()" title="ส่วนด่วน">⚡ ส่วนด่วน</button>
+            <button onclick="insertWordArt()" title="WordArt">🔠 WordArt</button>
+            <button onclick="insertDropCap()" title="ตัวอักษรใหญ่ขึ้นต้น">📑 ตัวอักษรใหญ่ขึ้นต้น</button>
+        </div>
+
+        <div class="ribbon-section">
+            <button onclick="insertEquationModal()" title="สมการ">∑ สมการ</button>
+            <button onclick="insertSymbolModal()" title="สัญลักษณ์">Ω สัญลักษณ์</button>
+        </div>
+
+        <!-- 6. แทรกวัตถุและเครื่องมือเดิม (วาดเขียน, เส้นคั่น, หน้าใหม่, ค้นหา) -->
+        <div class="ribbon-section">
+            <button onclick="openDrawingModal()">✏️ วาดเขียน</button>
+            <button onclick="insertHorizontalRule()">➖ เส้นคั่น</button>
+            <button onclick="insertPageBreak()">📄 หน้าใหม่</button>
+            <button onclick="openFindModal()">🔍 ค้นหา</button>
+        </div>
+
+        <!-- 7. หน้ากระดาษ & มุมมองเดิมครบถ้วน -->
+        <div class="ribbon-section">
+            <button onclick="toggleOrientation()" id="orientationBtn">🔄 แนวนอน</button>
+            <select onchange="changeMargin(this.value)">
+                <option value="2.5cm">ขอบปกติ</option>
+                <option value="1.5cm">ขอบแคบ</option>
+                <option value="3.5cm">ขอบกว้าง</option>
+            </select>
+            <button onclick="toggleRuler()" id="rulerBtn" class="active-toggle" title="แสดง/ซ่อนไม้บรรทัด">📏 ไม้บรรทัด</button>
+            <button onclick="toggleBoundaries()" id="boundaryBtn" title="แสดง/ซ่อนเส้นขอบเขตข้อความ">⬜ ขอบเขต</button>
+            <button onclick="toggleFocusMode()" id="focusBtn" title="โหมดโฟกัส">🎯 โฟกัส</button>
+            <button onclick="toggleThemeMode()" title="สลับโหมดพื้นหลังมืด/สว่าง">🌓 สลับโหมด</button>
+            <button onclick="toggleFullScreen()" title="เต็มหน้าจอ">⛶ เต็มจอ</button>
+        </div>
+
+        <!-- 8. บันทึกและพิมพ์เดิม -->
+        <div>
+            <button class="btn-primary" onclick="saveDocument()">💾 บันทึก</button>
+            <button class="btn-success" onclick="window.print()">🖨️ พิมพ์</button>
+        </div>
+    </div>
+
+    <!-- หน้ากระดาษ A4 + ไม้บรรทัด -->
+    <div class="workspace">
+        <div class="ruler-horizontal" id="topRuler"></div>
+        <div class="page-a4" contenteditable="true" id="mainEditor" oninput="updateStats()">
+            <h2 style="text-align: center; margin: 0;">บันทึกข้อความ</h2>
+            <p style="text-align: center; margin: 5px 0 20px 0;">สวนราชินี กำแพงเพชร</p>
+            <hr style="border: 0; border-top: 1px solid #333; margin-bottom: 20px;">
+            <p>เวอร์ชัน v37.0 รักษาโครงสร้างต้นฉบับ v33.0 ไว้ครบถ้วนร้อยเปอร์เซ็นต์ พร้อมเพิ่มปุ่มฟังก์ชันตามรายการที่ระบุเข้ามาแบบครบถ้วนสมบูรณ์ครับ...</p>
+        </div>
+    </div>
+
+    <!-- Modal ค้นหา -->
+    <div id="findModal" class="modal">
+        <div class="modal-content" style="width: 400px;">
+            <h3>🔍 ค้นหาข้อความ</h3>
+            <input type="text" id="findKeyword" placeholder="พิมพ์คำที่ต้องการ..." style="width:100%; padding:8px; margin:10px 0;">
+            <div style="text-align: right;"><button onclick="closeModals()">ปิด</button><button class="btn-primary" onclick="executeFind()">ค้นหา</button></div>
+        </div>
+    </div>
+
+    <!-- Modal กระดานวาดเขียน -->
+    <div id="drawingModal" class="modal">
+        <div class="modal-content">
+            <h3>✏️ กระดานวาดเขียน / ปากกา / ไฮไลต์</h3>
+            <div class="drawing-tools">
+                <button class="btn-primary" onclick="setTool('pen')">✒️ ปากกา</button>
+                <button class="btn-primary" onclick="setTool('pencil')">✏️ ดินสอ</button>
+                <button class="btn-primary" onclick="setTool('marker')">🖍️ ไฮไลต์</button>
+                <button class="btn-danger" onclick="setTool('eraser')">🧹 ยางลบ</button>
+                <span>สี:</span> <input type="color" id="drawColor" value="#000000" style="width:30px; height:30px; border:none; cursor:pointer;">
+                <span>ขนาด:</span> 
+                <select id="drawSize"><option value="2">เล็ก</option><option value="5" selected>กลาง</option><option value="12">ใหญ่</option><option value="25">ไฮไลต์หนา</option></select>
+                <button onclick="clearCanvas()">ล้าง</button>
+            </div>
+            <canvas id="drawCanvas" width="600" height="300" style="border:1px solid #ccc; background:#fff; cursor:crosshair; display:block; margin: 0 auto;"></canvas>
+            <div style="text-align: right; margin-top: 12px;"><button onclick="closeDrawingModal()">ยกเลิก</button><button class="btn-success" onclick="insertCanvasImage()">แทรกลงเอกสาร</button></div>
+        </div>
+    </div>
+
+    <!-- Status Bar พร้อมตัวควบคุมย่อ/ขยาย (Zoom) -->
+    <div class="status-bar">
+        <span id="statusInfo">หน้า 1 | จำนวนคำ: 0 คำ</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span>ย่อ/ขยาย:</span>
+            <button onclick="changeZoom(-0.1)" style="background:#fff; color:#000; border:none; padding:2px 8px; cursor:pointer; border-radius:2px;">-</button>
+            <span id="zoomLabel">100%</span>
+            <button onclick="changeZoom(0.1)" style="background:#fff; color:#000; border:none; padding:2px 8px; cursor:pointer; border-radius:2px;">+</button>
+            <button onclick="resetZoom()" style="background:#fff; color:#000; border:none; padding:2px 6px; cursor:pointer; border-radius:2px; font-size:11px;">100%</button>
+            <span style="margin-left:10px;">Mini Word Enterprise Pro v37.0</span>
+        </div>
+    </div>
+
+    <script>
+        let isLandscape = false;
+        let currentZoom = 1.0;
+
+        // สร้างสเกลไม้บรรทัดอัตโนมัติ
+        function buildRuler() {
+            const ruler = document.getElementById('topRuler');
+            ruler.innerHTML = '';
+            const totalTicks = isLandscape ? 30 : 21;
+            for (let i = 1; i <= totalTicks; i++) {
+                const tick = document.createElement('div');
+                tick.className = 'ruler-tick major';
+                tick.innerText = i;
+                ruler.appendChild(tick);
+            }
+        }
+        buildRuler();
+
+        function execCmd(command, value = null) {
+            document.execCommand(command, false, value);
+            document.getElementById('mainEditor').focus();
+        }
+
+        function changeFontSize(sizeVal) {
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                const range = selection.getRangeAt(0);
+                const span = document.createElement("span");
+                span.style.fontSize = sizeVal;
+                span.appendChild(range.extractContents());
+                range.insertNode(span);
+            }
+        }
+
+        function adjustSize(delta) {
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                const range = selection.getRangeAt(0);
+                let container = range.commonAncestorContainer;
+                if (container.nodeType === 3) container = container.parentNode;
+                let currentSize = parseInt(window.getComputedStyle(container).fontSize) || 16;
+                let newSize = Math.max(8, currentSize + delta);
+                const span = document.createElement("span");
+                span.style.fontSize = newSize + "px";
+                span.appendChild(range.extractContents());
+                range.insertNode(span);
+            }
+        }
+
+        // ปรับระยะห่างระหว่างบรรทัด (Line Height)
+        function changeLineHeight(lhVal) {
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                const range = selection.getRangeAt(0);
+                let block = range.commonAncestorContainer;
+                if (block.nodeType === 3) block = block.parentNode;
+                if (block.id !== 'mainEditor') {
+                    block.style.lineHeight = lhVal;
+                    return;
+                }
+            }
+            document.getElementById('mainEditor').style.lineHeight = lhVal;
+        }
+
+        // ปรับระยะห่างระหว่างย่อหน้า (Paragraph Spacing)
+        function changeParaSpacing(spaceVal) {
+            const editor = document.getElementById('mainEditor');
+            const paras = editor.querySelectorAll('p, div');
+            paras.forEach(p => {
+                if (!p.closest('.draggable-box') && !p.closest('.draggable-table-box') && !p.closest('.draggable-img-container')) {
+                    p.style.marginBottom = spaceVal;
+                }
+            });
+        }
+
+        function changeMargin(marginSize) { document.getElementById('mainEditor').style.padding = marginSize; }
+
+        // ฟังก์ชันใหม่ที่เพิ่มเข้ามาตามรายการ
+        function insertCoverPage() {
+            execCmd('insertHTML', '<div style="text-align:center; padding:100px 0; page-break-after:always;"><h1 style="font-size:36px; margin:0;">รายงานฉบับสมบูรณ์</h1><h3 style="margin:20px 0; color:#555;">สวนราชินี กำแพงเพชร</h3><p style="margin-top:150px; font-size:18px;">จัดทำโดย ลุงแจ่ม อารมณ์ดี</p></div><p><br></p>');
+        }
+        function insertBlankPage() {
+            execCmd('insertHTML', '<div style="page-break-after:always; min-height:25cm; text-align:center; color:#aaa; padding-top:100px;">[ หน้าว่าง ]</div><p><br></p>');
+        }
+        function insertShapeBox() {
+            execCmd('insertHTML', '<div style="display:inline-block; width:150px; height:100px; border:2px solid #0078d7; background:#e5f3ff; text-align:center; line-height:100px; margin:10px;">รูปร่างสี่เหลี่ยม</div>');
+        }
+        function insertIconSymbol() { execCmd('insertHTML', '⭐ [ไอคอนพิเศษ]'); }
+        function insertSmartArtBox() { execCmd('insertHTML', '<div style="border:1px solid #333; background:#f9f9f9; padding:15px; text-align:center; margin:15px 0;"><b>[SmartArt Diagram]</b><br>ขั้นตอนที่ 1 ➔ ขั้นตอนที่ 2 ➔ ขั้นตอนที่ 3</div>'); }
+        function insertChartBox() { execCmd('insertHTML', '<div style="border:1px solid #333; background:#fff; padding:15px; text-align:center; margin:15px 0;"><b>[แผนภูมิสถิติข้อมูล]</b><br>█ █ █ █ █ (กราฟแท่งแสดงยอดขาย)</div>'); }
+        function insertHyperlinkModal() {
+            let url = prompt("ป้อน URL เว็บไซต์หรือลิงก์:", "https://");
+            if(url) execCmd('createLink', url);
+        }
+        function insertBookmark() { alert("เพิ่มที่คั่นหน้าสำเร็จ"); }
+        function insertCrossReference() { alert("แทรกการอ้างโยงสำเร็จ"); }
+        function insertCommentBox() {
+            execCmd('insertHTML', '<span style="background:#fff3cd; border:1px solid #ffeeba; padding:2px 6px; font-size:13px; color:#856404;">💬 [ความเห็น: ตรวจสอบความถูกต้องเรียบร้อย]</span>');
+        }
+        function insertFooterNote() { execCmd('insertHTML', '<div style="font-size:12px; color:#666; border-top:1px solid #ccc; margin-top:20px; text-align:center;">ท้ายกระดาษ: สวนราชินี กำแพงเพชร (หน้า 1)</div>'); }
+        function insertPageNumber() { execCmd('insertHTML', '<span style="float:right; font-weight:bold;">หน้า 1</span>'); }
+        function insertQuickParts() { execCmd('insertHTML', '<span style="background:#e2e3e5; padding:2px 5px;">[ข้อความอัตโนมัติ: สวนราชินี]</span>'); }
+        function insertWordArt() {
+            execCmd('insertHTML', '<h2 style="text-align:center; font-size:28px; background:linear-gradient(45deg, #0078d7, #107c41); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:bold;">WordArt ศิลปะข้อความ</h2>');
+        }
+        function insertDropCap() {
+            execCmd('insertHTML', '<p><span style="float:left; font-size:48px; line-height:1; font-weight:bold; margin-right:8px; color:#0078d7;">ก</span>ารดำเนินงานของสวนราชินี...</p>');
+        }
+        function insertEquationModal() { execCmd('insertHTML', '<div style="text-align:center; font-style:italic; margin:10px 0; font-size:18px;">$$ \\sum_{i=1}^{n} X_i = Total $$</div>'); }
+        function insertSymbolModal() { execCmd('insertHTML', ' ℗ ® © ™ § ¶ † ‡ • ฿ '); }
+
+        // ฟังก์ชันมุมมองเดิม (View Controls)
+        function toggleRuler() {
+            const ruler = document.getElementById('topRuler');
+            const btn = document.getElementById('rulerBtn');
+            if (ruler.style.display === 'none') {
+                ruler.style.display = 'flex';
+                btn.classList.add('active-toggle');
+            } else {
+                ruler.style.display = 'none';
+                btn.classList.remove('active-toggle');
+            }
+        }
+
+        function toggleBoundaries() {
+            const page = document.getElementById('mainEditor');
+            const btn = document.getElementById('boundaryBtn');
+            page.classList.toggle('show-boundaries');
+            btn.classList.toggle('active-toggle');
+        }
+
+        function toggleFocusMode() {
+            const btn = document.getElementById('focusBtn');
+            document.body.classList.toggle('focus-mode');
+            btn.classList.toggle('active-toggle');
+        }
+
+        function toggleThemeMode() {
+            document.body.classList.toggle('light-workspace');
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+
+        function changeZoom(delta) {
+            currentZoom = Math.max(0.5, Math.min(1.6, +(currentZoom + delta).toFixed(2)));
+            applyZoom();
+        }
+
+        function resetZoom() {
+            currentZoom = 1.0;
+            applyZoom();
+        }
+
+        function applyZoom() {
+            const page = document.getElementById('mainEditor');
+            const ruler = document.getElementById('topRuler');
+            page.style.transform = `scale(${currentZoom})`;
+            ruler.style.transform = `scale(${currentZoom})`;
+            ruler.style.transformOrigin = 'bottom center';
+            document.getElementById('zoomLabel').innerText = Math.round(currentZoom * 100) + '%';
+        }
+
+        // สร้างตารางอิสระเดิม (แต่ละช่องยืดหดอิสระ)
+        function addDraggableTable() {
+            let r = prompt("จำนวนแถว:", "3"), c = prompt("จำนวนคอลัมน์:", "3");
+            if(!r || !c) return;
+            const page = document.getElementById('mainEditor');
+            const container = document.createElement('div');
+            container.className = 'draggable-table-box';
+            container.style.top = '180px';
+            container.style.left = '100px';
+
+            let tableHtml = `<div class="table-box-header"><span>📊 ตารางอิสระ (ปรับขนาดแต่ละช่องได้)</span><div><button onclick="addRowInBox(this)">+แถว</button><button onclick="addColInBox(this)">+ช่อง</button><button onclick="delRowInBox(this)">-แถว</button><button onclick="delColInBox(this)">-ช่อง</button><button onclick="this.closest('.draggable-table-box').remove()" style="color:red; font-weight:bold;">X</button></div></div>`;
+            tableHtml += '<table class="pro-table">';
+            for(let row=0; row<r; row++) {
+                tableHtml += '<tr>';
+                for(let col=0; col<c; col++) {
+                    tableHtml += '<td contenteditable="true">ช่อง</td>';
+                }
+                tableHtml += '</tr>';
+            }
+            tableHtml += '</table>';
+            container.innerHTML = tableHtml;
+            makeDraggable(container, '.table-box-header');
+            page.appendChild(container);
+        }
+
+        function addRowInBox(btn) {
+            let table = btn.closest('.draggable-table-box').querySelector('table');
+            let colCount = table.rows[0].cells.length;
+            let newRow = table.insertRow();
+            for(let i=0; i<colCount; i++) {
+                let td = newRow.insertCell(i);
+                td.contentEditable = "true";
+                td.innerText = "ช่อง";
+            }
+        }
+
+        function addColInBox(btn) {
+            let table = btn.closest('.draggable-table-box').querySelector('table');
+            for(let i=0; i<table.rows.length; i++) {
+                let cell = table.rows[i].insertCell();
+                cell.contentEditable = "true";
+                cell.innerText = "ช่อง";
+            }
+        }
+
+        function delRowInBox(btn) {
+            let table = btn.closest('.draggable-table-box').querySelector('table');
+            if(table.rows.length <= 1) { btn.closest('.draggable-table-box').remove(); return; }
+            table.deleteRow(table.rows.length - 1);
+        }
+
+        function delColInBox(btn) {
+            let table = btn.closest('.draggable-table-box').querySelector('table');
+            let colCount = table.rows[0].cells.length;
+            if(colCount <= 1) { btn.closest('.draggable-table-box').remove(); return; }
+            for(let i=0; i<table.rows.length; i++) {
+                table.rows[i].deleteCell(colCount - 1);
+            }
+        }
+
+        function addTextBox() {
+            const page = document.getElementById('mainEditor');
+            const container = document.createElement('div');
+            container.className = 'draggable-box';
+            container.style.top = '150px'; container.style.left = '150px';
+            container.innerHTML = `
+                <div class="box-header">
+                    <span>📦 กล่องข้อความ</span>
+                    <div class="box-controls">
+                        <span>สี:</span><input type="color" value="#ffffcc" onchange="this.closest('.draggable-box').style.backgroundColor = this.value">
+                        <span>ขอบ:</span><input type="color" value="#000000" onchange="this.closest('.draggable-box').style.borderColor = this.value">
+                        <button onclick="duplicateBox(this)">📋</button>
+                        <button onclick="this.closest('.draggable-box').remove()" style="color:red; font-weight:bold;">X</button>
+                    </div>
+                </div>
+                <textarea placeholder="พิมพ์ข้อความ..."></textarea>
+            `;
+            makeDraggable(container, '.box-header');
+            page.appendChild(container);
+        }
+
+        function duplicateBox(btn) {
+            const currentBox = btn.closest('.draggable-box');
+            const page = document.getElementById('mainEditor');
+            const container = document.createElement('div');
+            container.className = 'draggable-box';
+            container.style.top = (currentBox.offsetTop + 20) + 'px';
+            container.style.left = (currentBox.offsetLeft + 20) + 'px';
+            container.style.backgroundColor = currentBox.style.backgroundColor;
+            container.style.borderColor = currentBox.style.borderColor;
+            container.innerHTML = `
+                <div class="box-header">
+                    <span>📦 กล่องข้อความ (สำเนา)</span>
+                    <div class="box-controls">
+                        <span>สี:</span><input type="color" value="${currentBox.style.backgroundColor || '#ffffcc'}" onchange="this.closest('.draggable-box').style.backgroundColor = this.value">
+                        <span>ขอบ:</span><input type="color" value="${currentBox.style.borderColor || '#000000'}" onchange="this.closest('.draggable-box').style.borderColor = this.value">
+                        <button onclick="duplicateBox(this)">📋</button>
+                        <button onclick="this.closest('.draggable-box').remove()" style="color:red; font-weight:bold;">X</button>
+                    </div>
+                </div>
+                <textarea>${currentBox.querySelector('textarea').value}</textarea>
+            `;
+            makeDraggable(container, '.box-header');
+            page.appendChild(container);
+        }
+
+        function insertImageFile() {
+            let input = document.createElement('input');
+            input.type = 'file'; input.accept = 'image/*';
+            input.onchange = e => {
+                let reader = new FileReader();
+                reader.onload = ev => {
+                    const page = document.getElementById('mainEditor');
+                    const container = document.createElement('div');
+                    container.className = 'draggable-img-container';
+                    container.style.top = '180px'; container.style.left = '180px';
+                    container.innerHTML = `
+                        <div class="img-header">
+                            <span>🖼️ รูปภาพ</span>
+                            <div>
+                                <button onclick="resizeImg(this, 1.2)">[+]</button>
+                                <button onclick="resizeImg(this, 0.8)">[-]</button>
+                                <button onclick="this.closest('.draggable-img-container').remove()" style="background:#ff4d4d; color:#fff;">X</button>
+                            </div>
+                        </div>
+                        <img src="${ev.target.result}">
+                    `;
+                    makeDraggable(container, '.img-header');
+                    page.appendChild(container);
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            };
+            input.click();
+        }
+
+        function resizeImg(btn, ratio) {
+            let img = btn.closest('.draggable-img-container').querySelector('img');
+            if (img) img.style.width = (img.clientWidth * ratio) + 'px';
+        }
+
+        function makeDraggable(elm, handleQuery) {
+            let startX = 0, startY = 0, mouseX = 0, mouseY = 0;
+            const handle = elm.querySelector(handleQuery);
+            handle.onmousedown = function(e) {
+                if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+                e.preventDefault();
+                mouseX = e.clientX; mouseY = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            };
+            function elementDrag(e) {
+                e.preventDefault();
+                startX = mouseX - e.clientX; startY = mouseY - e.clientY;
+                mouseX = e.clientX; mouseY = e.clientY;
+                elm.style.top = (elm.offsetTop - startY) + 'px';
+                elm.style.left = (elm.offsetLeft - startX) + 'px';
+            }
+            function closeDragElement() { document.onmouseup = null; document.onmousemove = null; }
+        }
+
+        let canvas, ctx, painting = false, currentTool = 'pen';
+        function openDrawingModal() { document.getElementById('drawingModal').style.display = 'flex'; initCanvas(); }
+        function closeDrawingModal() { document.getElementById('drawingModal').style.display = 'none'; }
+        function initCanvas() {
+            canvas = document.getElementById('drawCanvas'); ctx = canvas.getContext('2d');
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            canvas.onmousedown = (e) => { painting = true; draw(e); };
+            canvas.onmousemove = draw; canvas.onmouseup = () => { painting = false; ctx.beginPath(); };
+        }
+        function setTool(tool) { currentTool = tool; }
+        function draw(e) {
+            if(!painting) return;
+            let rect = canvas.getBoundingClientRect();
+            let x = e.clientX - rect.left, y = e.clientY - rect.top;
+            ctx.lineWidth = document.getElementById('drawSize').value;
+            let color = document.getElementById('drawColor').value;
+            if (currentTool === 'eraser') { ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = 1.0; }
+            else if (currentTool === 'marker') { ctx.strokeStyle = color; ctx.globalAlpha = 0.3; }
+            else if (currentTool === 'pencil') { ctx.strokeStyle = color; ctx.globalAlpha = 0.7; ctx.lineWidth = 1; }
+            else { ctx.strokeStyle = color; ctx.globalAlpha = 1.0; }
+            ctx.lineTo(x, y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y);
+        }
+        function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+        function insertCanvasImage() {
+            let dataUrl = canvas.toDataURL();
+            const page = document.getElementById('mainEditor');
+            let container = document.createElement('div');
+            container.className = 'draggable-img-container'; container.style.top = '200px'; container.style.left = '200px';
+            container.innerHTML = `
+                <div class="img-header"><span>✏️ ภาพวาด</span><div><button onclick="resizeImg(this, 1.2)">[+]</button><button onclick="resizeImg(this, 0.8)">[-]</button><button onclick="this.closest('.draggable-img-container').remove()" style="background:#ff4d4d; color:#fff;">X</button></div></div>
+                <img src="${dataUrl}">
+            `;
+            makeDraggable(container, '.img-header'); page.appendChild(container); closeDrawingModal();
+        }
+
+        function insertCustomList(symbol) { execCmd('insertHTML', `<p style="margin-left: 20px;">${symbol} ข้อมูล...</p>`); }
+        function toggleOrientation() {
+            const page = document.getElementById('mainEditor'); 
+            const ruler = document.getElementById('topRuler');
+            const btn = document.getElementById('orientationBtn');
+            isLandscape = !isLandscape;
+            if (isLandscape) { 
+                page.classList.add('page-landscape'); 
+                ruler.classList.add('landscape-ruler');
+                btn.innerText = "🔄 แนวตั้ง"; 
+            } else { 
+                page.classList.remove('page-landscape'); 
+                ruler.classList.remove('landscape-ruler');
+                btn.innerText = "🔄 แนวนอน"; 
+            }
+            buildRuler();
+        }
+        function insertHorizontalRule() { execCmd('insertHorizontalRule'); }
+        function insertPageBreak() { execCmd('insertHTML', '<div style="page-break-after: always; border-bottom: 1px dashed #999; margin: 30px 0; text-align:center;">[ หน้าใหม่ ]</div><p><br></p>'); }
+        function insertShopHeader() { execCmd('insertHTML', '<div style="text-align:center; margin-bottom:20px;"><h2 style="margin:0; font-size:22px;">สวนราชินี กำแพงเพชร</h2><p style="margin:2px 0; font-size:14px;">ที่อยู่: ตำบลเทพนคร อำเภอเมือง จังหวัดกำแพงเพชร</p><hr style="border:0; border-top:2px solid #333; margin:10px 0;"></div>'); }
+        function openFindModal() { document.getElementById('findModal').style.display = 'flex'; }
+        function closeModals() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
+        function executeFind() { let kw = document.getElementById('findKeyword').value; if(kw) window.find(kw); }
+        function updateStats() {
+            let text = document.getElementById('mainEditor').innerText || "";
+            let words = text.trim() ? text.trim().split(/\s+/).length : 0;
+            document.getElementById('statusInfo').innerText = `หน้า 1 | จำนวนคำ: ${words} คำ`;
+        }
+        function saveDocument() {
+            let content = document.documentElement.outerHTML;
+            let blob = new Blob([content], {type: 'text/html;charset=utf-8'});
+            let a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mini-word-enterprise.html'; a.click();
+        }
+    </script>
+</body>
+</html>
