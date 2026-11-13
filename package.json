@@ -1,0 +1,14 @@
+{
+  "name": "mini-word-enterprise",
+  "version": "37.0.0",
+  "description": "Mini Word Enterprise Pro",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "ลุงแจ่ม อารมณ์ดี",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0"
+  }
+}
